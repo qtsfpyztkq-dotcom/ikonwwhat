@@ -1,0 +1,1476 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🌍 地球寻宝大师</title>
+<style>
+  :root {
+    --bg: #0a0a1a;
+    --panel: rgba(20, 20, 50, 0.9);
+    --gold: #ffd700;
+    --energy: #00e5ff;
+    --rare: #ab47bc;
+    --epic: #ff6d00;
+    --legendary: #ff1744;
+    --green: #00e676;
+    --text: #e0e0e0;
+    --text2: #888;
+    --border: rgba(255,255,255,0.1);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+  
+  body {
+    background: var(--bg);
+    font-family: 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', sans-serif;
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+    user-select: none;
+    background-image: 
+      radial-gradient(ellipse at 40% 30%, rgba(0,100,200,0.15) 0%, transparent 60%),
+      radial-gradient(ellipse at 70% 60%, rgba(100,0,200,0.1) 0%, transparent 60%),
+      radial-gradient(ellipse at 30% 70%, rgba(0,200,100,0.08) 0%, transparent 50%);
+  }
+
+  /* 星空粒子 */
+  .stars {
+    position: fixed; top:0; left:0; width:100%; height:100%;
+    pointer-events: none; z-index:0;
+  }
+  .star {
+    position: absolute;
+    background: white;
+    border-radius: 50%;
+    animation: twinkle var(--dur) ease-in-out infinite;
+    animation-delay: var(--delay);
+  }
+  @keyframes twinkle {
+    0%,100% { opacity: 0.3; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.5); }
+  }
+
+  /* 主容器 */
+  .main-container {
+    position: relative; z-index:1;
+    max-width: 1300px; margin: 0 auto;
+    padding: 10px 16px;
+    display: flex; flex-direction: column;
+    gap: 10px; height: 100vh;
+  }
+
+  /* 顶部状态栏 */
+  .top-bar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 20px;
+    background: var(--panel);
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    backdrop-filter: blur(20px);
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+  .top-bar .title {
+    font-size: 22px; font-weight: 800;
+    background: linear-gradient(90deg, #ffd700, #ff8c00, #ffd700);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-right: auto;
+    white-space: nowrap;
+  }
+  .stat-badge {
+    display: flex; align-items: center; gap: 6px;
+    padding: 8px 14px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    font-size: 14px; font-weight: 600;
+    transition: all 0.3s;
+    white-space: nowrap;
+  }
+  .stat-badge:hover {
+    background: rgba(255,255,255,0.1);
+    transform: translateY(-2px);
+  }
+  .stat-badge .icon { font-size: 18px; }
+  .stat-badge.coins .value { color: var(--gold); }
+  .stat-badge.energy .value { color: var(--energy); }
+  .stat-badge.treasures .value { color: var(--rare); }
+  .stat-badge.level .value { color: #ff8c00; }
+
+  /* 内容区 */
+  .content-area {
+    display: flex; gap: 12px; flex: 1;
+    min-height: 0;
+  }
+
+  /* 地球地图面板 */
+  .map-panel {
+    flex: 1;
+    background: var(--panel);
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    position: relative;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    overflow: hidden;
+    backdrop-filter: blur(20px);
+  }
+  .map-panel canvas {
+    cursor: pointer;
+    border-radius: 12px;
+  }
+  .map-hint {
+    position: absolute; bottom: 12px;
+    font-size: 12px; color: var(--text2);
+    pointer-events: none;
+    text-align: center;
+    width: 100%;
+  }
+  .region-label {
+    position: absolute;
+    pointer-events: none;
+    font-size: 13px; font-weight: 700;
+    color: rgba(255,255,255,0.85);
+    text-shadow: 0 0 10px rgba(0,0,0,0.8);
+    transition: all 0.3s;
+  }
+
+  /* 概率面板 */
+  .prob-overlay {
+    position: absolute; top: 16px; right: 16px;
+    background: rgba(0,0,0,0.75);
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 12px;
+    border: 1px solid var(--border);
+    pointer-events: none;
+    backdrop-filter: blur(10px);
+  }
+  .prob-overlay .prob-row {
+    display: flex; align-items: center; gap: 8px;
+    margin: 4px 0;
+  }
+  .prob-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .prob-bar-bg {
+    width: 60px; height: 4px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .prob-bar-fill {
+    height: 100%; border-radius: 2px;
+    transition: width 0.5s;
+  }
+
+  /* 右侧面板 */
+  .side-panel {
+    width: 360px; flex-shrink: 0;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+
+  /* 手机外卖面板 */
+  .phone-panel {
+    background: var(--panel);
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    padding: 16px;
+    backdrop-filter: blur(20px);
+    flex: 1;
+    display: flex; flex-direction: column;
+    overflow-y: auto;
+    position: relative;
+  }
+  .phone-header {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .phone-header .phone-icon { font-size: 24px; }
+  .phone-header .phone-title {
+    font-size: 16px; font-weight: 700;
+    color: #ff9800;
+  }
+  .flash-sale-badge {
+    margin-left: auto;
+    background: linear-gradient(135deg, #ff1744, #ff6d00);
+    color: white;
+    padding: 4px 10px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    animation: flashPulse 1s ease-in-out infinite;
+  }
+  @keyframes flashPulse {
+    0%,100% { opacity: 0.8; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.05); }
+  }
+  .food-list {
+    display: flex; flex-direction: column; gap: 8px;
+    flex: 1; overflow-y: auto;
+  }
+  .food-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
+  .food-item:hover {
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.3);
+    transform: translateX(4px);
+  }
+  .food-item.locked {
+    opacity: 0.5; cursor: not-allowed;
+    pointer-events: none;
+  }
+  .food-item .food-emoji { font-size: 32px; flex-shrink: 0; }
+  .food-item .food-info { flex: 1; min-width: 0; }
+  .food-item .food-name { font-size: 14px; font-weight: 600; }
+  .food-item .food-desc { font-size: 11px; color: var(--text2); }
+  .food-item .food-price {
+    font-weight: 700; font-size: 15px;
+    color: var(--gold); white-space: nowrap;
+  }
+  .food-item .food-energy {
+    font-size: 12px; color: var(--energy);
+  }
+  .food-item .discount-tag {
+    position: absolute; top: 6px; right: 6px;
+    background: #ff1744; color: white;
+    font-size: 10px; padding: 2px 6px;
+    border-radius: 8px;
+    font-weight: 700;
+  }
+  .food-item .bargain-btn {
+    background: linear-gradient(135deg, #ff6d00, #ff9100);
+    color: white; border: none;
+    padding: 4px 10px; border-radius: 12px;
+    font-size: 11px; cursor: pointer;
+    font-weight: 600;
+    white-space: nowrap;
+    transition: all 0.2s;
+  }
+  .food-item .bargain-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 12px rgba(255,109,0,0.5);
+  }
+  .food-item .bargain-btn:active { transform: scale(0.95); }
+
+  /* 拼团按钮 */
+  .group-buy-section {
+    margin-top: 10px;
+    padding: 12px;
+    background: linear-gradient(135deg, rgba(255,23,68,0.15), rgba(255,109,0,0.15));
+    border-radius: 12px;
+    border: 1px solid rgba(255,109,0,0.3);
+    text-align: center;
+  }
+  .group-buy-section .gb-title {
+    font-size: 13px; font-weight: 600;
+    color: #ff9100; margin-bottom: 6px;
+  }
+  .group-buy-section .gb-progress {
+    display: flex; gap: 4px; justify-content: center; margin: 8px 0;
+  }
+  .gb-avatar {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: rgba(255,255,255,0.15);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    border: 2px solid transparent;
+  }
+  .gb-avatar.filled {
+    border-color: #ff9100;
+    background: rgba(255,145,0,0.2);
+  }
+  .group-buy-section .gb-btn {
+    background: linear-gradient(135deg, #ff1744, #ff6d00);
+    color: white; border: none;
+    padding: 8px 20px; border-radius: 20px;
+    font-size: 13px; font-weight: 700;
+    cursor: pointer; margin-top: 6px;
+    transition: all 0.3s;
+  }
+  .group-buy-section .gb-btn:hover {
+    box-shadow: 0 0 20px rgba(255,23,68,0.4);
+    transform: translateY(-2px);
+  }
+  .group-buy-section .gb-btn:disabled {
+    opacity: 0.5; cursor: not-allowed; pointer-events: none;
+  }
+
+  /* 转盘按钮 */
+  .wheel-btn-area {
+    flex-shrink: 0;
+    display: flex; gap: 8px;
+  }
+  .btn-spin {
+    flex: 1;
+    background: linear-gradient(135deg, #ab47bc, #7b1fa2);
+    color: white; border: none;
+    padding: 12px;
+    border-radius: 14px;
+    font-size: 15px; font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex; align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .btn-spin:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(171,71,188,0.4);
+  }
+  .btn-spin:active { transform: scale(0.96); }
+  .btn-spin .free-badge {
+    background: #ff1744; color: white;
+    padding: 2px 8px; border-radius: 10px;
+    font-size: 11px;
+  }
+
+  .btn-upgrade {
+    background: linear-gradient(135deg, #ff8c00, #ff6d00);
+    color: white; border: none;
+    padding: 12px 18px;
+    border-radius: 14px;
+    font-size: 14px; font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s;
+    white-space: nowrap;
+  }
+  .btn-upgrade:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(255,140,0,0.4);
+  }
+
+  /* 弹窗 */
+  .modal-overlay {
+    position: fixed; top:0; left:0; width:100%; height:100%;
+    background: rgba(0,0,0,0.7);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 100;
+    backdrop-filter: blur(4px);
+    animation: fadeIn 0.3s;
+  }
+  @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+  
+  .modal {
+    background: linear-gradient(160deg, #1a1a3e, #0d0d2b);
+    border-radius: 24px;
+    padding: 28px;
+    border: 1px solid var(--border);
+    text-align: center;
+    max-width: 480px;
+    width: 90%;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    animation: modalIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+  @keyframes modalIn {
+    from { transform: scale(0.8) translateY(30px); opacity:0; }
+    to { transform: scale(1) translateY(0); opacity:1; }
+  }
+  .modal h2 { font-size: 24px; margin-bottom: 12px; }
+  .modal .reward-display {
+    font-size: 64px; margin: 16px 0;
+    animation: rewardBounce 0.6s ease-out;
+  }
+  @keyframes rewardBounce {
+    0% { transform: scale(0); }
+    50% { transform: scale(1.3); }
+    100% { transform: scale(1); }
+  }
+  .modal .reward-text {
+    font-size: 18px; font-weight: 700;
+    margin-bottom: 16px;
+  }
+  .modal .close-btn {
+    background: rgba(255,255,255,0.1);
+    color: white; border: 1px solid var(--border);
+    padding: 10px 30px; border-radius: 20px;
+    font-size: 15px; cursor: pointer;
+    transition: all 0.3s;
+  }
+  .modal .close-btn:hover {
+    background: rgba(255,255,255,0.2);
+  }
+
+  /* 转盘弹窗 */
+  .wheel-container {
+    position: relative;
+    display: inline-block;
+  }
+  .wheel-pointer {
+    position: absolute; top: -18px; left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 16px solid transparent;
+    border-right: 16px solid transparent;
+    border-top: 28px solid #ff1744;
+    filter: drop-shadow(0 2px 6px rgba(255,23,68,0.6));
+    z-index: 2;
+  }
+  .spin-action-btn {
+    background: linear-gradient(135deg, #ff1744, #ff6d00);
+    color: white; border: none;
+    padding: 12px 36px; border-radius: 24px;
+    font-size: 16px; font-weight: 700;
+    cursor: pointer; margin-top: 16px;
+    transition: all 0.3s;
+  }
+  .spin-action-btn:hover {
+    box-shadow: 0 8px 30px rgba(255,23,68,0.5);
+    transform: translateY(-2px);
+  }
+  .spin-action-btn:disabled {
+    opacity: 0.5; cursor: not-allowed; pointer-events: none;
+  }
+
+  /* 消息提示 */
+  .toast {
+    position: fixed; top: 20px; left: 50%;
+    transform: translateX(-50%);
+    padding: 12px 28px;
+    border-radius: 24px;
+    font-weight: 700; font-size: 15px;
+    z-index: 200;
+    animation: toastIn 0.4s ease-out, toastOut 0.3s 2s ease-in forwards;
+    pointer-events: none;
+  }
+  @keyframes toastIn {
+    from { transform: translateX(-50%) translateY(-40px); opacity:0; }
+    to { transform: translateX(-50%) translateY(0); opacity:1; }
+  }
+  @keyframes toastOut {
+    from { opacity:1; }
+    to { opacity:0; transform: translateX(-50%) translateY(-20px); }
+  }
+  .toast.success { background: linear-gradient(135deg, #00c853, #00e676); color: #000; }
+  .toast.info { background: linear-gradient(135deg, #2979ff, #00e5ff); color: #fff; }
+  .toast.warning { background: linear-gradient(135deg, #ff6d00, #ff9100); color: #fff; }
+  .toast.epic { background: linear-gradient(135deg, #6a1b9a, #ab47bc); color: #fff; }
+  .toast.legendary { background: linear-gradient(135deg, #ff1744, #ffd700); color: #fff; }
+
+  /* 响应式 */
+  @media (max-width: 900px) {
+    .content-area { flex-direction: column; }
+    .side-panel { width: 100%; flex-direction: row; flex-wrap: wrap; }
+    .phone-panel { flex: unset; max-height: 300px; }
+    .main-container { height: auto; }
+    .map-panel { min-height: 350px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 星空背景 -->
+<div class="stars" id="stars"></div>
+
+<!-- 主界面 -->
+<div class="main-container">
+  <!-- 顶部状态栏 -->
+  <div class="top-bar">
+    <span class="title">🌍 地球寻宝大师</span>
+    <div class="stat-badge coins"><span class="icon">🪙</span>金币 <span class="value" id="statCoins">100</span></div>
+    <div class="stat-badge energy"><span class="icon">⚡</span>能量 <span class="value" id="statEnergy">100</span>/<span id="statMaxEnergy">100</span></div>
+    <div class="stat-badge treasures"><span class="icon">💎</span>宝藏 <span class="value" id="statTreasures">0</span></div>
+    <div class="stat-badge level"><span class="icon">🏆</span>供养者 <span class="value" id="statLevel">Lv.1</span></div>
+  </div>
+
+  <!-- 内容区 -->
+  <div class="content-area">
+    <!-- 地球地图 -->
+    <div class="map-panel" id="mapPanel">
+      <canvas id="mapCanvas"></canvas>
+      <div class="prob-overlay" id="probOverlay">
+        <div style="font-weight:700;margin-bottom:4px;font-size:13px;">📊 当前区域几率</div>
+        <div class="prob-row"><span class="prob-dot" style="background:#aaa;"></span>普通 <span class="prob-bar-bg"><span class="prob-bar-fill" style="background:#aaa;width:60%;" id="probCommon"></span></span> <span id="probCommonText">60%</span></div>
+        <div class="prob-row"><span class="prob-dot" style="background:#2979ff;"></span>稀有 <span class="prob-bar-bg"><span class="prob-bar-fill" style="background:#2979ff;width:25%;" id="probRare"></span></span> <span id="probRareText">25%</span></div>
+        <div class="prob-row"><span class="prob-dot" style="background:#ab47bc;"></span>史诗 <span class="prob-bar-bg"><span class="prob-bar-fill" style="background:#ab47bc;width:10%;" id="probEpic"></span></span> <span id="probEpicText">10%</span></div>
+        <div class="prob-row"><span class="prob-dot" style="background:#ffd700;"></span>传说 <span class="prob-bar-bg"><span class="prob-bar-fill" style="background:#ffd700;width:5%;" id="probLegendary"></span></span> <span id="probLegendaryText">5%</span></div>
+        <div style="font-size:10px;color:#888;margin-top:4px;" id="probEnergyCost">能耗: 10⚡</div>
+      </div>
+      <div class="map-hint">🖱️ 点击地图区域进行挖宝 | 不同区域几率不同</div>
+    </div>
+
+    <!-- 右侧面板 -->
+    <div class="side-panel">
+      <!-- 手机外卖面板 -->
+      <div class="phone-panel" id="phonePanel">
+        <div class="phone-header">
+          <span class="phone-icon">📱</span>
+          <span class="phone-title">外卖补给站</span>
+          <span class="flash-sale-badge" id="flashBadge">🔥限时秒杀</span>
+        </div>
+        <div class="food-list" id="foodList">
+          <!-- 动态生成 -->
+        </div>
+        <!-- 拼团 -->
+        <div class="group-buy-section" id="groupBuySection">
+          <div class="gb-title">👥 拼团优惠 — 满3人享7折！</div>
+          <div class="gb-progress" id="gbProgress"></div>
+          <button class="gb-btn" id="gbBtn" onclick="joinGroupBuy()">🙋 我要参团 (免费)</button>
+        </div>
+      </div>
+
+      <!-- 按钮区 -->
+      <div class="wheel-btn-area">
+        <button class="btn-spin" onclick="openSpinWheel()">
+          🎡 幸运大转盘
+          <span class="free-badge" id="freeSpinBadge">免费</span>
+        </button>
+        <button class="btn-upgrade" onclick="openUpgradePanel()">
+          ⬆️ 供养者升级
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 挖宝结果弹窗 -->
+<div class="modal-overlay" id="digModal" style="display:none;">
+  <div class="modal" id="digModalContent"></div>
+</div>
+
+<!-- 转盘弹窗 -->
+<div class="modal-overlay" id="wheelModal" style="display:none;">
+  <div class="modal">
+    <h2>🎡 幸运大转盘</h2>
+    <div class="wheel-container">
+      <div class="wheel-pointer"></div>
+      <canvas id="wheelCanvas" width="320" height="320"></canvas>
+    </div>
+    <div id="wheelResult" style="margin-top:12px;font-size:14px;color:#888;"></div>
+    <button class="spin-action-btn" id="spinBtn" onclick="spinWheel()">🎯 开始抽奖</button>
+    <div style="margin-top:10px;font-size:12px;color:#888;">
+      每30分钟免费一次 | 或花费 50🪙 抽一次
+    </div>
+    <button class="close-btn" style="margin-top:12px;" onclick="closeWheelModal()">关闭</button>
+  </div>
+</div>
+
+<!-- 升级弹窗 -->
+<div class="modal-overlay" id="upgradeModal" style="display:none;">
+  <div class="modal" style="text-align:left;">
+    <h2 style="text-align:center;">🏆 供养者升级</h2>
+    <div id="upgradeContent"></div>
+    <div style="text-align:center;margin-top:16px;">
+      <button class="close-btn" onclick="closeUpgradeModal()">关闭</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==================== 游戏数据 ====================
+const gameState = {
+  coins: 100,
+  energy: 100,
+  maxEnergy: 100,
+  treasures: 0,
+  providerLevel: 1,
+  providerExp: 0,
+  providerMaxExp: 50,
+  totalDigs: 0,
+  freeSpins: 1,
+  lastFreeSpinTime: Date.now(),
+  groupBuyMembers: 1,
+  groupBuyActive: false,
+  groupBuyItem: null,
+  bargainCounts: {},
+  selectedRegion: 'asia',
+  digCooldown: false,
+};
+
+// 区域配置
+const regions = {
+  asia: { name: '亚洲', probCommon: 60, probRare: 25, probEpic: 10, probLegendary: 5, energyCost: 10, color: '#ff9800', desc: '均衡之地' },
+  europe: { name: '欧洲', probCommon: 50, probRare: 32, probEpic: 12, probLegendary: 6, energyCost: 10, color: '#2979ff', desc: '稀有宝库' },
+  africa: { name: '非洲', probCommon: 55, probRare: 22, probEpic: 15, probLegendary: 8, energyCost: 12, color: '#ff6d00', desc: '史诗秘境' },
+  namerica: { name: '北美洲', probCommon: 48, probRare: 28, probEpic: 14, probLegendary: 10, energyCost: 14, color: '#00c853', desc: '传说猎场' },
+  samerica: { name: '南美洲', probCommon: 62, probRare: 26, probEpic: 8, probLegendary: 4, energyCost: 8, color: '#ab47bc', desc: '低耗区域' },
+  oceania: { name: '大洋洲', probCommon: 58, probRare: 24, probEpic: 12, probLegendary: 6, energyCost: 10, color: '#00e5ff', desc: '金币加成' },
+};
+
+// 外卖菜单
+const foodMenu = [
+  { id: 'burger', name: '🍔 汉堡套餐', energy: 30, price: 10, desc: '快速补充小能量', bargainPrice: 6, bargainCount: 0, bargainMax: 3, groupPrice: 7 },
+  { id: 'pizza', name: '🍕 披萨套餐', energy: 50, price: 18, desc: '标准能量补给', bargainPrice: 11, bargainCount: 0, bargainMax: 4, groupPrice: 13 },
+  { id: 'ramen', name: '🍜 拉面套餐', energy: 80, price: 28, desc: '大份能量恢复', bargainPrice: 18, bargainCount: 0, bargainMax: 5, groupPrice: 20 },
+  { id: 'sushi', name: '🍣 寿司拼盘', energy: 120, price: 40, desc: '豪华能量大餐', bargainPrice: 28, bargainCount: 0, bargainMax: 6, groupPrice: 28 },
+  { id: 'cake', name: '🍰 甜品盛宴', energy: 200, price: 60, desc: '极致能量补给', bargainPrice: 45, bargainCount: 0, bargainMax: 7, groupPrice: 42 },
+];
+
+// 宝藏奖品池
+const treasurePool = {
+  common: [
+    { name: '古铜币', emoji: '🪙', coins: 5 },
+    { name: '碎银块', emoji: '🪨', coins: 8 },
+    { name: '玛瑙珠', emoji: '🔮', coins: 6 },
+    { name: '旧金币', emoji: '💰', coins: 10 },
+    { name: '化石碎片', emoji: '🦴', coins: 7 },
+  ],
+  rare: [
+    { name: '蓝宝石', emoji: '💎', coins: 25 },
+    { name: '红宝石', emoji: '🔴', coins: 30 },
+    { name: '翡翠玉', emoji: '🟢', coins: 28 },
+    { name: '古代陶器', emoji: '🏺', coins: 22 },
+    { name: '金条', emoji: '📀', coins: 35 },
+  ],
+  epic: [
+    { name: '法老权杖', emoji: '👑', coins: 60 },
+    { name: '龙之泪', emoji: '🐉', coins: 75 },
+    { name: '凤凰羽毛', emoji: '🦅', coins: 70 },
+    { name: '星陨石', emoji: '☄️', coins: 80 },
+  ],
+  legendary: [
+    { name: '所罗门之戒', emoji: '💍', coins: 150 },
+    { name: '宙斯闪电', emoji: '⚡', coins: 200 },
+    { name: '亚特兰蒂斯之心', emoji: '🌊', coins: 180 },
+    { name: '宇宙起源之石', emoji: '🌟', coins: 250 },
+  ],
+};
+
+// 转盘奖品
+const wheelPrizes = [
+  { label: '10🪙', type: 'coins', value: 10, color: '#ff9800', prob: 20 },
+  { label: '20🪙', type: 'coins', value: 20, color: '#ff9800', prob: 18 },
+  { label: '30⚡', type: 'energy', value: 30, color: '#00e5ff', prob: 18 },
+  { label: '50🪙', type: 'coins', value: 50, color: '#ffc107', prob: 12 },
+  { label: '稀有宝', type: 'rareTreasure', value: 1, color: '#2979ff', prob: 10 },
+  { label: '100🪙', type: 'coins', value: 100, color: '#ffd700', prob: 8 },
+  { label: '翻倍卡', type: 'doubler', value: 1, color: '#ab47bc', prob: 8 },
+  { label: '传说宝', type: 'legendaryTreasure', value: 1, color: '#ff1744', prob: 4 },
+  { label: '500🪙', type: 'coins', value: 500, color: '#ffd700', prob: 1.5 },
+  { label: '300⚡', type: 'energy', value: 300, color: '#00e676', prob: 0.5 },
+];
+
+// 供养者升级配置
+const providerLevels = [
+  { level: 1, name: '初级供养者', expNeeded: 0, bonuses: { rareBonus: 0, epicBonus: 0, legendBonus: 0, coinMult: 1 }, icon: '🥉' },
+  { level: 2, name: '中级供养者', expNeeded: 50, bonuses: { rareBonus: 3, epicBonus: 0, legendBonus: 0, coinMult: 1.1 }, icon: '🥈' },
+  { level: 3, name: '高级供养者', expNeeded: 120, bonuses: { rareBonus: 5, epicBonus: 3, legendBonus: 0, coinMult: 1.2 }, icon: '🥇' },
+  { level: 4, name: '大师供养者', expNeeded: 250, bonuses: { rareBonus: 7, epicBonus: 5, legendBonus: 3, coinMult: 1.4 }, icon: '💎' },
+  { level: 5, name: '传说供养者', expNeeded: 500, bonuses: { rareBonus: 10, epicBonus: 8, legendBonus: 5, coinMult: 1.6 }, icon: '👑' },
+];
+
+// ==================== 初始化 ====================
+function init() {
+  createStars();
+  initMap();
+  renderFoodList();
+  renderGroupBuy();
+  updateStats();
+  updateProbability();
+  checkFreeSpin();
+  initWheel();
+  // 定时恢复免费转盘
+  setInterval(checkFreeSpin, 30000);
+  // 定时恢复一点能量
+  setInterval(() => {
+    if (gameState.energy < gameState.maxEnergy) {
+      gameState.energy = Math.min(gameState.maxEnergy, gameState.energy + 2);
+      updateStats();
+    }
+  }, 10000);
+}
+
+function createStars() {
+  const container = document.getElementById('stars');
+  for (let i = 0; i < 80; i++) {
+    const star = document.createElement('div');
+    star.className = 'star';
+    star.style.left = Math.random() * 100 + '%';
+    star.style.top = Math.random() * 100 + '%';
+    star.style.width = star.style.height = (1 + Math.random() * 2.5) + 'px';
+    star.style.setProperty('--dur', (2 + Math.random() * 4) + 's');
+    star.style.setProperty('--delay', Math.random() * 5 + 's');
+    container.appendChild(star);
+  }
+}
+
+// ==================== 地球地图 ====================
+const mapCanvas = document.getElementById('mapCanvas');
+const mapCtx = mapCanvas.getContext('2d');
+
+let mapWidth, mapHeight, cx, cy, globeRadius;
+const regionAngles = [];
+
+function initMap() {
+  resizeMap();
+  window.addEventListener('resize', resizeMap);
+  mapCanvas.addEventListener('click', handleMapClick);
+  mapCanvas.addEventListener('mousemove', handleMapHover);
+}
+
+function resizeMap() {
+  const panel = document.getElementById('mapPanel');
+  const size = Math.min(panel.clientWidth - 20, panel.clientHeight - 60, 600);
+  mapWidth = size;
+  mapHeight = size;
+  mapCanvas.width = mapWidth;
+  mapCanvas.height = mapHeight;
+  mapCanvas.style.width = mapWidth + 'px';
+  mapCanvas.style.height = mapHeight + 'px';
+  cx = mapWidth / 2;
+  cy = mapHeight / 2;
+  globeRadius = mapWidth * 0.38;
+  defineRegions();
+  drawMap();
+}
+
+function defineRegions() {
+  // 定义6个区域的扇形角度范围
+  const regionsList = ['asia', 'europe', 'africa', 'namerica', 'samerica', 'oceania'];
+  const anglePer = (Math.PI * 2) / regionsList.length;
+  regionAngles.length = 0;
+  regionsList.forEach((id, i) => {
+    regionAngles.push({
+      id,
+      startAngle: i * anglePer - Math.PI / 2,
+      endAngle: (i + 1) * anglePer - Math.PI / 2,
+      midAngle: (i + 0.5) * anglePer - Math.PI / 2,
+      innerRadius: globeRadius * 0.25,
+      outerRadius: globeRadius,
+    });
+  });
+}
+
+function drawMap(hoveredRegion) {
+  const ctx = mapCtx;
+  ctx.clearRect(0, 0, mapWidth, mapHeight);
+
+  // 背景光晕
+  const glowGrad = ctx.createRadialGradient(cx, cy, globeRadius * 0.3, cx, cy, globeRadius * 1.4);
+  glowGrad.addColorStop(0, 'rgba(0,150,255,0.15)');
+  glowGrad.addColorStop(0.5, 'rgba(50,0,150,0.08)');
+  glowGrad.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = glowGrad;
+  ctx.beginPath();
+  ctx.arc(cx, cy, globeRadius * 1.4, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 经纬线
+  ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+  ctx.lineWidth = 0.5;
+  for (let i = 1; i < 4; i++) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, globeRadius * i * 0.25, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  for (let i = 0; i < 8; i++) {
+    const a = (Math.PI * 2 / 8) * i;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(a) * globeRadius, cy + Math.sin(a) * globeRadius);
+    ctx.stroke();
+  }
+
+  // 绘制区域
+  regionAngles.forEach(region => {
+    const rData = regions[region.id];
+    const isHovered = hoveredRegion === region.id;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, region.outerRadius, region.startAngle, region.endAngle);
+    ctx.closePath();
+
+    // 区域填充
+    const baseColor = hexToRgb(rData.color);
+    const alpha = isHovered ? 0.35 : 0.18;
+    ctx.fillStyle = `rgba(${baseColor.r},${baseColor.g},${baseColor.b},${alpha})`;
+    ctx.fill();
+
+    // 选中高亮
+    if (gameState.selectedRegion === region.id) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+      // 发光边框
+      ctx.strokeStyle = rData.color;
+      ctx.lineWidth = 1;
+      ctx.shadowColor = rData.color;
+      ctx.shadowBlur = 12;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    } else if (isHovered) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    } else {
+      ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    // 区域标签
+    const labelR = region.outerRadius * 0.6;
+    const lx = cx + Math.cos(region.midAngle) * labelR;
+    const ly = cy + Math.sin(region.midAngle) * labelR;
+    
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.font = 'bold 13px "PingFang SC","Microsoft YaHei",sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(rData.name, lx, ly - 8);
+    
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.font = '10px "PingFang SC","Microsoft YaHei",sans-serif';
+    ctx.fillText(rData.desc, lx, ly + 10);
+
+    ctx.restore();
+  });
+
+  // 中心装饰
+  const centerGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, globeRadius * 0.25);
+  centerGrad.addColorStop(0, 'rgba(255,255,255,0.1)');
+  centerGrad.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = centerGrad;
+  ctx.beginPath();
+  ctx.arc(cx, cy, globeRadius * 0.25, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 中心图标
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.font = '28px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('🌍', cx, cy);
+
+  // 点击波纹动画
+  if (digAnimation) {
+    const elapsed = Date.now() - digAnimation.startTime;
+    const progress = Math.min(elapsed / 600, 1);
+    const r = globeRadius * (0.1 + progress * 0.5);
+    const alpha = 1 - progress;
+    ctx.strokeStyle = `rgba(255,215,0,${alpha})`;
+    ctx.lineWidth = 3 * (1 - progress);
+    ctx.beginPath();
+    ctx.arc(digAnimation.x, digAnimation.y, r, 0, Math.PI * 2);
+    ctx.stroke();
+    if (progress >= 1) digAnimation = null;
+  }
+}
+
+let digAnimation = null;
+
+function hexToRgb(hex) {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result ? {
+    r: parseInt(result[1], 16),
+    g: parseInt(result[2], 16),
+    b: parseInt(result[3], 16)
+  } : { r: 255, g: 255, b: 255 };
+}
+
+function getRegionFromPoint(x, y) {
+  const dx = x - cx;
+  const dy = y - cy;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  if (dist > globeRadius || dist < globeRadius * 0.25) return null;
+  let angle = Math.atan2(dy, dx);
+  if (angle < -Math.PI / 2) angle += Math.PI * 2;
+  for (const region of regionAngles) {
+    let sa = region.startAngle;
+    let ea = region.endAngle;
+    if (sa < 0) { sa += Math.PI * 2; ea += Math.PI * 2; }
+    let checkAngle = angle;
+    if (checkAngle < 0) checkAngle += Math.PI * 2;
+    if (checkAngle >= sa && checkAngle <= ea) return region.id;
+  }
+  return null;
+}
+
+function handleMapHover(e) {
+  const rect = mapCanvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  const regionId = getRegionFromPoint(x, y);
+  drawMap(regionId);
+  if (regionId && regionId !== gameState.selectedRegion) {
+    mapCanvas.style.cursor = 'pointer';
+  } else if (!regionId) {
+    mapCanvas.style.cursor = 'default';
+  }
+}
+
+function handleMapClick(e) {
+  if (gameState.digCooldown) return;
+  const rect = mapCanvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  const regionId = getRegionFromPoint(x, y);
+  if (!regionId) return;
+  
+  gameState.selectedRegion = regionId;
+  updateProbability();
+  digTreasure(regionId, x, y);
+}
+
+function digTreasure(regionId, clickX, clickY) {
+  const region = regions[regionId];
+  const levelBonus = providerLevels[gameState.providerLevel - 1].bonuses;
+  
+  if (gameState.energy < region.energyCost) {
+    showToast('⚡ 能量不足！请用手机外卖补充能量', 'warning');
+    return;
+  }
+
+  gameState.energy -= region.energyCost;
+  gameState.digCooldown = true;
+  
+  // 动画
+  digAnimation = { x: clickX, y: clickY, startTime: Date.now() };
+  
+  // 计算几率
+  let probCommon = region.probCommon;
+  let probRare = region.probRare + levelBonus.rareBonus;
+  let probEpic = region.probEpic + levelBonus.epicBonus;
+  let probLegendary = region.probLegendary + levelBonus.legendBonus;
+  
+  // 大洋洲金币加成
+  let coinMult = levelBonus.coinMult;
+  if (regionId === 'oceania') coinMult *= 1.3;
+  
+  const roll = Math.random() * 100;
+  let rarity, pool;
+  
+  if (roll < probLegendary) {
+    rarity = 'legendary';
+    pool = 'legendary';
+  } else if (roll < probLegendary + probEpic) {
+    rarity = 'epic';
+    pool = 'epic';
+  } else if (roll < probLegendary + probEpic + probRare) {
+    rarity = 'rare';
+    pool = 'rare';
+  } else {
+    rarity = 'common';
+    pool = 'common';
+  }
+  
+  const treasure = treasurePool[pool][Math.floor(Math.random() * treasurePool[pool].length)];
+  const earnedCoins = Math.floor(treasure.coins * coinMult);
+  
+  gameState.coins += earnedCoins;
+  gameState.treasures++;
+  gameState.totalDigs++;
+  gameState.providerExp += (rarity === 'legendary' ? 20 : rarity === 'epic' ? 10 : rarity === 'rare' ? 5 : 2);
+
+  updateStats();
+  
+  // 显示结果
+  setTimeout(() => {
+    showDigResult(rarity, treasure, earnedCoins, region);
+    gameState.digCooldown = false;
+    checkLevelUp();
+  }, 400);
+
+  drawMap();
+  
+  // 持续动画
+  const animInterval = setInterval(() => {
+    drawMap();
+    if (!digAnimation) clearInterval(animInterval);
+  }, 50);
+}
+
+function showDigResult(rarity, treasure, earnedCoins, region) {
+  const rarityColors = {
+    common: { color: '#aaa', name: '普通', glow: 'rgba(170,170,170,0.3)' },
+    rare: { color: '#2979ff', name: '稀有', glow: 'rgba(41,121,255,0.4)' },
+    epic: { color: '#ab47bc', name: '史诗', glow: 'rgba(171,71,188,0.5)' },
+    legendary: { color: '#ffd700', name: '传说', glow: 'rgba(255,215,0,0.6)' },
+  };
+  const rc = rarityColors[rarity];
+  
+  const modal = document.getElementById('digModal');
+  const content = document.getElementById('digModalContent');
+  
+  content.innerHTML = `
+    <h2 style="color:${rc.color};text-shadow:0 0 20px ${rc.glow};">🎉 挖到了！</h2>
+    <div class="reward-display">${treasure.emoji}</div>
+    <div class="reward-text" style="color:${rc.color};">
+      [${rc.name}] ${treasure.name}
+    </div>
+    <div style="font-size:16px;color:#ffd700;margin-bottom:4px;">
+      +${earnedCoins} 🪙 金币
+    </div>
+    <div style="font-size:12px;color:#888;">
+      区域: ${region.name} | 能量消耗: ${region.energyCost}⚡
+    </div>
+    <button class="close-btn" style="margin-top:14px;" onclick="closeDigModal()">继续探索 🗺️</button>
+  `;
+  
+  modal.style.display = 'flex';
+  
+  // Toast
+  const toastTypes = { common: 'info', rare: 'info', epic: 'epic', legendary: 'legendary' };
+  showToast(`${rc.name}宝藏: ${treasure.emoji} ${treasure.name} +${earnedCoins}🪙`, toastTypes[rarity]);
+}
+
+function closeDigModal() {
+  document.getElementById('digModal').style.display = 'none';
+  drawMap();
+}
+
+// ==================== 几率显示 ====================
+function updateProbability() {
+  const region = regions[gameState.selectedRegion];
+  const levelBonus = providerLevels[gameState.providerLevel - 1].bonuses;
+  
+  let probCommon = region.probCommon;
+  let probRare = region.probRare + levelBonus.rareBonus;
+  let probEpic = region.probEpic + levelBonus.epicBonus;
+  let probLegendary = region.probLegendary + levelBonus.legendBonus;
+  
+  // 归一化
+  const total = probCommon + probRare + probEpic + probLegendary;
+  probCommon = Math.round(probCommon / total * 100);
+  probRare = Math.round(probRare / total * 100);
+  probEpic = Math.round(probEpic / total * 100);
+  probLegendary = 100 - probCommon - probRare - probEpic;
+  if (probLegendary < 0) { probLegendary = 0; probCommon = 100 - probRare - probEpic; }
+  
+  document.getElementById('probCommon').style.width = probCommon + '%';
+  document.getElementById('probCommonText').textContent = probCommon + '%';
+  document.getElementById('probRare').style.width = probRare + '%';
+  document.getElementById('probRareText').textContent = probRare + '%';
+  document.getElementById('probEpic').style.width = probEpic + '%';
+  document.getElementById('probEpicText').textContent = probEpic + '%';
+  document.getElementById('probLegendary').style.width = probLegendary + '%';
+  document.getElementById('probLegendaryText').textContent = probLegendary + '%';
+  document.getElementById('probEnergyCost').textContent = `能耗: ${region.energyCost}⚡ | 区域: ${region.name}`;
+}
+
+// ==================== 手机外卖 ====================
+function renderFoodList() {
+  const container = document.getElementById('foodList');
+  container.innerHTML = foodMenu.map(item => {
+    const currentPrice = getFoodPrice(item);
+    const hasDiscount = currentPrice < item.price;
+    const bargained = gameState.bargainCounts[item.id] || 0;
+    const canBuy = gameState.coins >= currentPrice;
+    
+    return `
+      <div class="food-item ${canBuy ? '' : 'locked'}">
+        <span class="food-emoji">${item.name.split(' ')[0]}</span>
+        <div class="food-info">
+          <div class="food-name">${item.name.split(' ').slice(1).join(' ')}</div>
+          <div class="food-desc">+${item.energy}⚡ ${item.desc}</div>
+          ${bargained > 0 ? `<div style="font-size:10px;color:#ff9100;">已砍${bargained}刀</div>` : ''}
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          <div class="food-price" style="${hasDiscount?'text-decoration:line-through;font-size:12px;color:#888;':''}">
+            ${item.price}🪙
+          </div>
+          ${hasDiscount ? `<div class="food-price">${currentPrice}🪙</div>` : ''}
+          <div class="food-energy">+${item.energy}⚡</div>
+        </div>
+        ${hasDiscount ? '<div class="discount-tag">-' + Math.round((1 - currentPrice / item.price) * 100) + '%</div>' : ''}
+        <button class="bargain-btn" onclick="event.stopPropagation();bargainItem('${item.id}')" 
+          ${bargained >= item.bargainMax ? 'disabled style="opacity:0.3;"' : ''}>
+          🔪砍一刀
+        </button>
+        <button class="bargain-btn" style="background:linear-gradient(135deg,#00c853,#00e676);margin-left:4px;"
+          onclick="event.stopPropagation();buyFood('${item.id}')" ${canBuy?'':'disabled'}>
+          购买
+        </button>
+      </div>
+    `;
+  }).join('');
+}
+
+function getFoodPrice(item) {
+  let price = item.price;
+  const bargained = gameState.bargainCounts[item.id] || 0;
+  if (bargained > 0) {
+    const discount = (item.price - item.bargainPrice) / item.bargainMax * bargained;
+    price = Math.round(item.price - discount);
+  }
+  if (gameState.groupBuyActive && gameState.groupBuyItem === item.id && gameState.groupBuyMembers >= 3) {
+    price = item.groupPrice;
+  }
+  return price;
+}
+
+function bargainItem(itemId) {
+  const item = foodMenu.find(f => f.id === itemId);
+  if (!item) return;
+  let bargained = gameState.bargainCounts[item.id] || 0;
+  if (bargained >= item.bargainMax) return;
+  
+  // 拼多多砍一刀 —— 模拟砍价，每次随机砍掉不同额度
+  const cutAmount = Math.floor(Math.random() * 3) + 1;
+  bargained = Math.min(bargained + cutAmount, item.bargainMax);
+  gameState.bargainCounts[item.id] = bargained;
+  
+  showToast(`🔪 砍价成功！已砍 ${bargained}/${item.bargainMax} 刀`, 'info');
+  renderFoodList();
+}
+
+function buyFood(itemId) {
+  const item = foodMenu.find(f => f.id === itemId);
+  if (!item) return;
+  const price = getFoodPrice(item);
+  if (gameState.coins < price) {
+    showToast('🪙 金币不足！', 'warning');
+    return;
+  }
+  if (gameState.energy >= gameState.maxEnergy) {
+    showToast('⚡ 能量已满！无需购买', 'info');
+    return;
+  }
+  
+  gameState.coins -= price;
+  gameState.energy = Math.min(gameState.maxEnergy, gameState.energy + item.energy);
+  gameState.providerExp += 3;
+  
+  showToast(`📱 外卖到！+${item.energy}⚡ 能量`, 'success');
+  updateStats();
+  renderFoodList();
+  checkLevelUp();
+}
+
+function joinGroupBuy() {
+  if (gameState.groupBuyMembers >= 3) {
+    showToast('👥 拼团已满！享受7折优惠', 'success');
+    return;
+  }
+  
+  gameState.groupBuyMembers++;
+  renderGroupBuy();
+  
+  if (gameState.groupBuyMembers >= 3) {
+    gameState.groupBuyActive = true;
+    gameState.groupBuyItem = foodMenu[Math.floor(Math.random() * foodMenu.length)].id;
+    showToast('🎉 拼团成功！已解锁7折外卖', 'success');
+    renderFoodList();
+  } else {
+    showToast(`👥 已参团 ${gameState.groupBuyMembers}/3 人，还差${3 - gameState.groupBuyMembers}人`, 'info');
+  }
+}
+
+function renderGroupBuy() {
+  const container = document.getElementById('gbProgress');
+  const btn = document.getElementById('gbBtn');
+  let html = '';
+  for (let i = 0; i < 3; i++) {
+    html += `<div class="gb-avatar ${i < gameState.groupBuyMembers ? 'filled' : ''}">${i < gameState.groupBuyMembers ? '👤' : '❓'}</div>`;
+  }
+  container.innerHTML = html;
+  btn.disabled = gameState.groupBuyMembers >= 3;
+  btn.textContent = gameState.groupBuyMembers >= 3 ? '✅ 拼团成功' : '🙋 我要参团 (免费)';
+}
+
+// ==================== 幸运大转盘 ====================
+const wheelCanvas = document.getElementById('wheelCanvas');
+const wheelCtx = wheelCanvas.getContext('2d');
+let wheelAngle = 0;
+let wheelSpinning = false;
+let wheelAnimId = null;
+
+function initWheel() {
+  wheelCanvas.width = 320;
+  wheelCanvas.height = 320;
+  drawWheel(wheelAngle);
+}
+
+function drawWheel(angle) {
+  const ctx = wheelCtx;
+  const w = 320, h = 320;
+  const cr = 140;
+  const cx = w / 2, cy = h / 2;
+  ctx.clearRect(0, 0, w, h);
+  
+  const sliceAngle = (Math.PI * 2) / wheelPrizes.length;
+  
+  wheelPrizes.forEach((prize, i) => {
+    const start = angle + i * sliceAngle;
+    const end = start + sliceAngle;
+    
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, cr, start, end);
+    ctx.closePath();
+    
+    const grad = ctx.createRadialGradient(cx, cy, 30, cx, cy, cr);
+    grad.addColorStop(0, prize.color);
+    grad.addColorStop(1, i % 2 === 0 ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.3)');
+    ctx.fillStyle = grad;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    
+    // 文字
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(start + sliceAngle / 2);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 14px "PingFang SC","Microsoft YaHei",sans-serif';
+    ctx.shadowColor = 'rgba(0,0,0,0.5)';
+    ctx.shadowBlur = 3;
+    ctx.fillText(prize.label, cr * 0.7, 5);
+    ctx.shadowBlur = 0;
+    ctx.restore();
+  });
+  
+  // 中心圆
+  const centerGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 30);
+  centerGrad.addColorStop(0, '#fff');
+  centerGrad.addColorStop(1, '#ccc');
+  ctx.fillStyle = centerGrad;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 28, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#333';
+  ctx.font = 'bold 10px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('GO', cx, cy);
+}
+
+function openSpinWheel() {
+  document.getElementById('wheelModal').style.display = 'flex';
+  document.getElementById('wheelResult').textContent = '';
+  document.getElementById('spinBtn').disabled = false;
+  initWheel();
+  checkFreeSpin();
+}
+
+function closeWheelModal() {
+  if (wheelSpinning) return;
+  document.getElementById('wheelModal').style.display = 'none';
+}
+
+function spinWheel() {
+  if (wheelSpinning) return;
+  
+  // 检查是否有免费次数
+  if (gameState.freeSpins > 0) {
+    gameState.freeSpins--;
+  } else if (gameState.coins >= 50) {
+    gameState.coins -= 50;
+    updateStats();
+  } else {
+    showToast('🪙 金币不足！需要50金币', 'warning');
+    return;
+  }
+  
+  wheelSpinning = true;
+  document.getElementById('spinBtn').disabled = true;
+  document.getElementById('wheelResult').textContent = '转动中...';
+  
+  // 确定奖品的权重随机
+  const totalProb = wheelPrizes.reduce((s, p) => s + p.prob, 0);
+  let roll = Math.random() * totalProb;
+  let prizeIndex = 0;
+  let cumulative = 0;
+  for (let i = 0; i < wheelPrizes.length; i++) {
+    cumulative += wheelPrizes[i].prob;
+    if (roll <= cumulative) { prizeIndex = i; break; }
+  }
+  
+  // 计算目标角度
+  const sliceAngle = (Math.PI * 2) / wheelPrizes.length;
+  const targetSliceMiddle = prizeIndex * sliceAngle + sliceAngle / 2;
+  const fullSpins = (5 + Math.floor(Math.random() * 5)) * Math.PI * 2;
+  const targetAngle = wheelAngle + fullSpins + (Math.PI * 2 - ((wheelAngle + fullSpins) % (Math.PI * 2))) + targetSliceMiddle;
+  
+  // 动画
+  const startAngle = wheelAngle;
+  const startTime = Date.now();
+  const duration = 4000 + Math.random() * 2000;
+  
+  function animate() {
+    const elapsed = Date.now() - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    // ease-out
+    const eased = 1 - Math.pow(1 - progress, 4);
+    wheelAngle = startAngle + (targetAngle - startAngle) * eased;
+    drawWheel(wheelAngle);
+    
+    if (progress < 1) {
+      wheelAnimId = requestAnimationFrame(animate);
+    } else {
+      wheelSpinning = false;
+      wheelAnimId = null;
+      const prize = wheelPrizes[prizeIndex];
+      applyWheelPrize(prize);
+    }
+  }
+  
+  wheelAnimId = requestAnimationFrame(animate);
+}
+
+function applyWheelPrize(prize) {
+  const resultEl = document.getElementById('wheelResult');
+  
+  switch (prize.type) {
+    case 'coins':
+      gameState.coins += prize.value;
+      resultEl.innerHTML = `<span style="color:#ffd700;font-size:18px;">🎉 获得 ${prize.value} 🪙 金币！</span>`;
+      showToast(`🎡 转盘: +${prize.value}🪙`, 'success');
+      break;
+    case 'energy':
+      gameState.energy = Math.min(gameState.maxEnergy, gameState.energy + prize.value);
+      resultEl.innerHTML = `<span style="color:#00e5ff;font-size:18px;">⚡ 获得 ${prize.value} 能量！</span>`;
+      showToast(`🎡 转盘: +${prize.value}⚡`, 'success');
+      break;
+    case 'rareTreasure':
+      const rareItem = treasurePool.rare[Math.floor(Math.random() * treasurePool.rare.length)];
+      gameState.coins += rareItem.coins;
+      gameState.treasures++;
+      gameState.providerExp += 8;
+      resultEl.innerHTML = `<span style="color:#2979ff;font-size:18px;">💎 稀有宝藏: ${rareItem.emoji} ${rareItem.name} +${rareItem.coins}🪙</span>`;
+      showToast(`🎡 转盘: 稀有宝藏 ${rareItem.name}`, 'info');
+      break;
+    case 'legendaryTreasure':
+      const legItem = treasurePool.legendary[Math.floor(Math.random() * treasurePool.legendary.length)];
+      gameState.coins += legItem.coins;
+      gameState.treasures++;
+      gameState.providerExp += 25;
+      resultEl.innerHTML = `<span style="color:#ff1744;font-size:18px;">👑 传说宝藏: ${legItem.emoji} ${legItem.name} +${legItem.coins}🪙</span>`;
+      showToast(`🎡 转盘: 传说宝藏 ${legItem.name}!!!`, 'legendary');
+      break;
+    case 'doubler':
+      gameState.freeSpins += 2;
+      resultEl.innerHTML = `<span style="color:#ab47bc;font-size:18px;">🔄 翻倍卡！获赠 2次免费抽奖</span>`;
+      showToast(`🎡 转盘: 翻倍卡 +2免费抽奖`, 'epic');
+      break;
+  }
+  
+  updateStats();
+  checkLevelUp();
+  checkFreeSpin();
+  document.getElementById('spinBtn').disabled = false;
+}
+
+function checkFreeSpin() {
+  const now = Date.now();
+  const elapsed = now - gameState.lastFreeSpinTime;
+  if (elapsed > 1800000 && gameState.freeSpins === 0) { // 30分钟
+    gameState.freeSpins = 1;
+    gameState.lastFreeSpinTime = now;
+  }
+  const badge = document.getElementById('freeSpinBadge');
+  if (badge) {
+    badge.textContent = gameState.freeSpins > 0 ? `免费x${gameState.freeSpins}` : '50🪙';
+  }
+}
+
+// ==================== 供养者升级 ====================
+function checkLevelUp() {
+  const currentLevel = gameState.providerLevel;
+  if (currentLevel >= providerLevels.length) return;
+  
+  const nextLevel = providerLevels[currentLevel];
+  if (gameState.providerExp >= nextLevel.expNeeded) {
+    gameState.providerLevel++;
+    gameState.providerMaxExp = providerLevels[Math.min(gameState.providerLevel, providerLevels.length - 1)].expNeeded;
+    const newLevelData = providerLevels[gameState.providerLevel - 1];
+    showToast(`🏆 升级！${newLevelData.icon} ${newLevelData.name}`, 'epic');
+    updateStats();
+    updateProbability();
+  }
+}
+
+function openUpgradePanel() {
+  const modal = document.getElementById('upgradeModal');
+  const content = document.getElementById('upgradeContent');
+  const currentLv = providerLevels[gameState.providerLevel - 1];
+  const nextLv = gameState.providerLevel < providerLevels.length ? providerLevels[gameState.providerLevel] : null;
+  
+  let html = `
+    <div style="text-align:center;font-size:48px;margin:10px 0;">${currentLv.icon}</div>
+    <div style="text-align:center;font-size:20px;font-weight:700;color:#ff8c00;">${currentLv.name}</div>
+    <div style="text-align:center;font-size:13px;color:#888;margin-bottom:16px;">
+      经验: ${gameState.providerExp} / ${currentLv.expNeeded}
+    </div>
+    <div style="background:rgba(255,255,255,0.05);border-radius:12px;padding:14px;margin:8px 0;">
+      <div style="font-weight:700;margin-bottom:8px;">🎁 当前加成:</div>
+      <div style="font-size:13px;color:#888;">
+        <div>• 稀有几率 +${currentLv.bonuses.rareBonus}%</div>
+        <div>• 史诗几率 +${currentLv.bonuses.epicBonus}%</div>
+        <div>• 传说几率 +${currentLv.bonuses.legendBonus}%</div>
+        <div>• 金币倍率 x${currentLv.bonuses.coinMult}</div>
+      </div>
+    </div>
+  `;
+  
+  if (nextLv) {
+    html += `
+      <div style="background:rgba(255,140,0,0.1);border-radius:12px;padding:14px;margin:8px 0;border:1px solid rgba(255,140,0,0.3);">
+        <div style="font-weight:700;color:#ff8c00;margin-bottom:8px;">⬆️ 下一级: ${nextLv.icon} ${nextLv.name}</div>
+        <div style="font-size:13px;color:#aaa;">
+          <div>• 稀有几率 +${nextLv.bonuses.rareBonus}%</div>
+          <div>• 史诗几率 +${nextLv.bonuses.epicBonus}%</div>
+          <div>• 传说几率 +${nextLv.bonuses.legendBonus}%</div>
+          <div>• 金币倍率 x${nextLv.bonuses.coinMult}</div>
+        </div>
+        <div style="margin-top:8px;font-size:12px;color:#ff9800;">
+          需要经验: ${nextLv.expNeeded} (当前: ${gameState.providerExp})
+        </div>
+        <div style="margin-top:4px;background:rgba(255,255,255,0.08);border-radius:8px;height:8px;overflow:hidden;">
+          <div style="background:linear-gradient(90deg,#ff8c00,#ffd700);height:100%;width:${Math.min(100, gameState.providerExp / nextLv.expNeeded * 100)}%;border-radius:8px;transition:width 0.5s;"></div>
+        </div>
+      </div>
+    `;
+  } else {
+    html += `<div style="text-align:center;color:#ffd700;font-weight:700;padding:12px;">🏆 已达最高等级！</div>`;
+  }
+  
+  content.innerHTML = html;
+  modal.style.display = 'flex';
+}
+
+function closeUpgradeModal() {
+  document.getElementById('upgradeModal').style.display = 'none';
+}
+
+// ==================== 通用 ====================
+function updateStats() {
+  document.getElementById('statCoins').textContent = gameState.coins;
+  document.getElementById('statEnergy').textContent = gameState.energy;
+  document.getElementById('statMaxEnergy').textContent = gameState.maxEnergy;
+  document.getElementById('statTreasures').textContent = gameState.treasures;
+  const lvData = providerLevels[gameState.providerLevel - 1];
+  document.getElementById('statLevel').textContent = `Lv.${gameState.providerLevel} ${lvData.icon}`;
+}
+
+function showToast(msg, type) {
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.textContent = msg;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 2500);
+}
+
+// 游戏循环
+function gameLoop() {
+  drawMap();
+  requestAnimationFrame(gameLoop);
+}
+
+// 启动
+init();
+requestAnimationFrame(gameLoop);
+</script>
+
+</body>
+</html>
